@@ -8,10 +8,10 @@ export const appConfig = {
 };
 
 export const publicNavItems: NavItem[] = [
-  { label: "Routes", href: "#routes" },
-  { label: "Tickets", href: "#ticket-preview" },
-  { label: "Roles", href: "#roles" },
-  { label: "Access", href: "#accessibility" },
+  { label: "Routes", href: "/#routes" },
+  { label: "Roles", href: "/#roles" },
+  { label: "About", href: "/about" },
+  { label: "Contact", href: "/contact" },
 ];
 
 export const roleLabels: Record<UserRole, string> = {

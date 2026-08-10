@@ -48,3 +48,50 @@ export type NavItem = {
   label: string;
   href: string;
 };
+
+export type AuthUser = {
+  id: string;
+  firstName: string;
+  middleName?: string;
+  lastName: string;
+  name: string;
+  email: string;
+  phone?: string;
+  nationalId?: string;
+  role: UserRole;
+};
+
+export type SessionPayload = {
+  sub: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  iat: number;
+  exp: number;
+};
+
+export type IconName =
+  | "badgeCheck"
+  | "barChart"
+  | "bell"
+  | "bus"
+  | "calendar"
+  | "creditCard"
+  | "fileText"
+  | "layoutDashboard"
+  | "map"
+  | "qrCode"
+  | "receipt"
+  | "route"
+  | "settings"
+  | "ticket"
+  | "users";
+
+export type DashboardNavItem = NavItem & {
+  icon: IconName;
+};
+
+export type TableColumn<T> = {
+  key: keyof T;
+  label: string;
+};

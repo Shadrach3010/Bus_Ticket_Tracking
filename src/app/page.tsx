@@ -137,8 +137,8 @@ export default function Home() {
               </h2>
             </div>
             <p className="max-w-2xl text-sm leading-6 text-slate-600">
-              Current route samples are ready to connect to the future PHP/MySQL
-              API when the backend is available.
+              Current route samples are ready to connect to Next.js route
+              handlers as the application data layer grows.
             </p>
           </div>
 
