@@ -2,6 +2,8 @@ import type { DashboardNavItem, UserRole } from "@/types";
 
 export const passengerNavItems: DashboardNavItem[] = [
   { label: "Dashboard", href: "/passenger/dashboard", icon: "layoutDashboard" },
+  { label: "Routes", href: "/passenger/routes", icon: "map" },
+  { label: "Book Ticket", href: "/passenger/book-ticket", icon: "ticket" },
   { label: "Profile", href: "/passenger/profile", icon: "users" },
   { label: "Bookings", href: "/passenger/bookings", icon: "calendar" },
   { label: "Tickets", href: "/passenger/tickets", icon: "ticket" },
@@ -17,6 +19,7 @@ export const passengerNavItems: DashboardNavItem[] = [
 export const conductorNavItems: DashboardNavItem[] = [
   { label: "Dashboard", href: "/conductor/dashboard", icon: "layoutDashboard" },
   { label: "Trips", href: "/conductor/trips", icon: "route" },
+  { label: "Scan Ticket", href: "/conductor/scan", icon: "qrCode" },
   { label: "Passengers", href: "/conductor/passengers", icon: "users" },
   { label: "Tickets", href: "/conductor/tickets", icon: "qrCode" },
   { label: "Reports", href: "/conductor/reports", icon: "fileText" },
@@ -26,6 +29,7 @@ export const conductorNavItems: DashboardNavItem[] = [
 
 export const adminNavItems: DashboardNavItem[] = [
   { label: "Dashboard", href: "/admin/dashboard", icon: "layoutDashboard" },
+  { label: "Analytics", href: "/admin/analytics", icon: "barChart" },
   { label: "Passengers", href: "/admin/passengers", icon: "users" },
   { label: "Conductors", href: "/admin/conductors", icon: "badgeCheck" },
   { label: "Routes", href: "/admin/routes", icon: "map" },
