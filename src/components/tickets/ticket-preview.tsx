@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import QRCode from "qrcode";
 import {
   BadgeCheck,
   CalendarDays,
@@ -22,42 +23,6 @@ import { Button } from "@/components/ui/button";
 import type { DigitalTicket } from "@/types";
 import { useToast } from "@/components/ui/toast-provider";
 
-// Helper to generate deterministic QR grid from ticket reference
-function generateQrGrid(ref: string) {
-  const seed = ref.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const size = 10;
-  const grid: number[] = [];
-
-  for (let i = 0; i < size * size; i++) {
-    const row = Math.floor(i / size);
-    const col = i % size;
-
-    // Standard QR finder patterns in corners
-    if (
-      (row < 3 && col < 3) ||
-      (row < 3 && col >= size - 3) ||
-      (row >= size - 3 && col < 3)
-    ) {
-      if (
-        (row === 0 || row === 2 || col === 0 || col === 2) && row < 3 && col < 3 ||
-        (row === 0 || row === 2 || col === size - 1 || col === size - 3) && row < 3 && col >= size - 3 ||
-        (row === size - 1 || row === size - 3 || col === 0 || col === 2) && row >= size - 3 && col < 3
-      ) {
-        grid.push(1);
-      } else if ((row === 1 && col === 1) || (row === 1 && col === size - 2) || (row === size - 2 && col === 1)) {
-        grid.push(1);
-      } else {
-        grid.push(0);
-      }
-    } else {
-      // Deterministic noise based on character codes
-      const val = (seed * (i + 13) + i * 37) % 100 > 45 ? 1 : 0;
-      grid.push(val);
-    }
-  }
-  return grid;
-}
-
 type TicketPreviewProps = {
   ticket: DigitalTicket;
   onCancel?: (ticketId: string) => void;
@@ -67,7 +32,26 @@ type TicketPreviewProps = {
 export function TicketPreview({ ticket, onCancel, showActions = true }: TicketPreviewProps) {
   const toast = useToast();
   const [copied, setCopied] = useState(false);
-  const qrCells = generateQrGrid(ticket.reference);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
+
+  useEffect(() => {
+    // Generate real ISO standard QR code encoding the exact ticket reference
+    QRCode.toDataURL(ticket.reference, {
+      margin: 1,
+      width: 256,
+      color: {
+        dark: "#020617",
+        light: "#ffffff",
+      },
+      errorCorrectionLevel: "M",
+    })
+      .then((url) => {
+        setQrDataUrl(url);
+      })
+      .catch((err) => {
+        console.error("QR Code generation error:", err);
+      });
+  }, [ticket.reference]);
 
   const [origin, destination] = ticket.route.includes(" to ")
     ? ticket.route.split(" to ")
@@ -80,8 +64,8 @@ export function TicketPreview({ ticket, onCancel, showActions = true }: TicketPr
       case "unused":
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-            <BadgeCheck className="h-3.5 w-3.5" />
-            Active Pass
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            Valid & Ready
           </span>
         );
       case "used":
@@ -149,7 +133,6 @@ export function TicketPreview({ ticket, onCancel, showActions = true }: TicketPr
 
       {/* Main Body */}
       <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-[1fr_auto]">
-
         {/* Left Side: Route and Passenger details */}
         <div className="space-y-5">
           {/* Route Visualizer */}
@@ -243,25 +226,20 @@ export function TicketPreview({ ticket, onCancel, showActions = true }: TicketPr
           )}
         </div>
 
-        {/* Right Side: QR Code & Verification Block */}
+        {/* Right Side: Real Standard QR Code & Verification Block */}
         <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50/80 p-5 text-center min-w-[200px]">
-          <div className="relative rounded-xl border-2 border-slate-900 bg-white p-3 shadow-md">
-            <div
-              aria-label={`QR verification code for ticket ${ticket.reference}`}
-              className="grid h-36 w-36 grid-cols-10 gap-1 rounded-md bg-white"
-            >
-              {qrCells.map((cell, index) => (
-                <span
-                  key={`${ticket.id}-${index}`}
-                  aria-hidden="true"
-                  className={
-                    cell
-                      ? "rounded-[1px] bg-slate-950"
-                      : "rounded-[1px] bg-transparent"
-                  }
-                />
-              ))}
-            </div>
+          <div className="relative rounded-2xl border-2 border-slate-900 bg-white p-3 shadow-md">
+            {qrDataUrl ? (
+              <img
+                src={qrDataUrl}
+                alt={`QR code for ticket ${ticket.reference}`}
+                className="h-36 w-36 object-contain"
+              />
+            ) : (
+              <div className="flex h-36 w-36 items-center justify-center bg-slate-100 text-slate-400">
+                <QrCode className="h-12 w-12 animate-pulse" />
+              </div>
+            )}
           </div>
 
           <div className="mt-3 space-y-1">
@@ -277,7 +255,7 @@ export function TicketPreview({ ticket, onCancel, showActions = true }: TicketPr
 
       {/* Bottom Action Footer */}
       {showActions && (
-        <div className="no-print flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 px-6 py-3.5">
+        <div className="no-print flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 px-4 sm:px-6 py-3.5">
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
             Paid via {ticket.paymentMethod}
@@ -312,14 +290,15 @@ export function TicketPreview({ ticket, onCancel, showActions = true }: TicketPr
             </button>
 
             {ticket.status === "unused" && onCancel && (
-              <button
+              <Button
+                variant="danger"
+                className="text-xs px-3 py-1.5 h-auto"
                 onClick={() => onCancel(ticket.id)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition shadow-sm ml-1"
-                title="Cancel Booking"
               >
-                Cancel Ticket
-              </button>
+                Cancel Pass
+              </Button>
             )}
+
           </div>
         </div>
       )}

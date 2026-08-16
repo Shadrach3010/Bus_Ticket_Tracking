@@ -486,21 +486,20 @@ function notifyListeners() {
   });
 }
 
-function loadSavedState(): SystemState {
-  if (typeof window === "undefined") {
-    return globalState;
-  }
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return { ...initialDefaultState, ...parsed };
+function getCurrentState(): SystemState {
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        return { ...initialDefaultState, ...JSON.parse(raw) };
+      }
+    } catch (error) {
+      console.error("Failed to read system state:", error);
     }
-  } catch (error) {
-    console.error("Failed to load saved system state:", error);
   }
-  return initialDefaultState;
+  return globalState;
 }
+
 
 function saveState(nextState: SystemState) {
   globalState = nextState;
@@ -514,25 +513,19 @@ function saveState(nextState: SystemState) {
   notifyListeners();
 }
 
-// Ensure state is initialized on client
-if (typeof window !== "undefined") {
-  globalState = loadSavedState();
-}
-
 export function useAppStore() {
-  const [state, setState] = useState<SystemState>(() => {
-    if (typeof window !== "undefined") {
-      return loadSavedState();
-    }
-    return globalState;
-  });
+  const [state, setState] = useState<SystemState>(initialDefaultState);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    // Initial sync
-    setState(loadSavedState());
+    // Initial client-side sync from localStorage
+    const saved = getCurrentState();
+    globalState = saved;
+    setState(saved);
+    setIsHydrated(true);
 
     const handleChange = () => {
-      setState({ ...globalState });
+      setState(getCurrentState());
     };
 
     listeners.add(handleChange);
@@ -546,6 +539,8 @@ export function useAppStore() {
 
   return {
     ...state,
+    isHydrated,
+
     bookTicket: (input: {
       passengerName: string;
       passengerPhone: string;
@@ -554,7 +549,8 @@ export function useAppStore() {
       seatNumber: string;
       paymentMethod: DigitalTicket["paymentMethod"];
     }) => {
-      const route = state.routes.find((r) => r.id === input.routeId) || state.routes[0];
+      const current = getCurrentState();
+      const route = current.routes.find((r) => r.id === input.routeId) || current.routes[0];
       const reference = `BT-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
       const newTicketId = `ticket-${Date.now()}`;
       
@@ -600,10 +596,10 @@ export function useAppStore() {
       };
 
       const nextState: SystemState = {
-        ...state,
-        tickets: [newTicket, ...state.tickets],
-        payments: [newPayment, ...state.payments],
-        manifestPassengers: [newManifestItem, ...state.manifestPassengers],
+        ...current,
+        tickets: [newTicket, ...current.tickets],
+        payments: [newPayment, ...current.payments],
+        manifestPassengers: [newManifestItem, ...current.manifestPassengers],
       };
 
       saveState(nextState);
@@ -611,13 +607,18 @@ export function useAppStore() {
     },
 
     validateTicket: (reference: string, conductorName = "Mohamed Bangura", bus = "BUS-18") => {
-      const normalizedRef = reference.trim().toUpperCase();
-      const ticket = state.tickets.find((t) => t.reference.toUpperCase() === normalizedRef);
+      const current = getCurrentState();
+      const normalizedRef = reference.trim().toUpperCase().replace(/[^A-Z0-9-]/g, "");
+
+      const ticket = current.tickets.find((t) => {
+        const tRef = t.reference.trim().toUpperCase().replace(/[^A-Z0-9-]/g, "");
+        return tRef === normalizedRef || t.id.toUpperCase() === normalizedRef;
+      });
 
       if (!ticket) {
         const auditLog: ValidationAuditLog = {
           id: `LOG-${Date.now()}`,
-          ticketReference: normalizedRef,
+          ticketReference: normalizedRef || reference,
           passengerName: "Unknown",
           route: "Unknown",
           status: "Invalid",
@@ -626,16 +627,16 @@ export function useAppStore() {
           bus,
         };
         saveState({
-          ...state,
-          validationLogs: [auditLog, ...state.validationLogs],
+          ...current,
+          validationLogs: [auditLog, ...current.validationLogs],
         });
-        return { success: false, reason: "invalid", message: `Ticket ${normalizedRef} was not found in the ticketing system database.` };
+        return { success: false, reason: "invalid", message: `Ticket ${normalizedRef || reference} was not found in the ticketing system database.` };
       }
 
       if (ticket.status === "used") {
         const auditLog: ValidationAuditLog = {
           id: `LOG-${Date.now()}`,
-          ticketReference: normalizedRef,
+          ticketReference: ticket.reference,
           passengerName: ticket.passengerName,
           route: ticket.route,
           status: "Already Used",
@@ -644,25 +645,25 @@ export function useAppStore() {
           bus,
         };
         saveState({
-          ...state,
-          validationLogs: [auditLog, ...state.validationLogs],
+          ...current,
+          validationLogs: [auditLog, ...current.validationLogs],
         });
         return {
           success: false,
           reason: "already_used",
-          message: `Ticket ${normalizedRef} has ALREADY been validated on ${ticket.validatedAt || "earlier trip"} by ${ticket.validatedBy || "staff"}.`,
+          message: `Ticket ${ticket.reference} has ALREADY been validated on ${ticket.validatedAt || "earlier trip"} by ${ticket.validatedBy || "staff"}.`,
           ticket,
         };
       }
 
       if (ticket.status === "cancelled") {
-        return { success: false, reason: "cancelled", message: `Ticket ${normalizedRef} was cancelled and is invalid for boarding.`, ticket };
+        return { success: false, reason: "cancelled", message: `Ticket ${ticket.reference} was cancelled and is invalid for boarding.`, ticket };
       }
 
       // Mark as used
       const validatedTimestamp = new Date().toISOString().replace("T", " ").slice(0, 16);
-      const updatedTickets = state.tickets.map((t) =>
-        t.reference.toUpperCase() === normalizedRef
+      const updatedTickets = current.tickets.map((t) =>
+        t.id === ticket.id || t.reference.toUpperCase() === ticket.reference.toUpperCase()
           ? {
               ...t,
               status: "used" as const,
@@ -673,18 +674,18 @@ export function useAppStore() {
       );
 
       // Update manifest
-      const updatedManifest = state.manifestPassengers.map((m) =>
-        m.ticketReference.toUpperCase() === normalizedRef ? { ...m, isBoarded: true } : m
+      const updatedManifest = current.manifestPassengers.map((m) =>
+        m.ticketReference.toUpperCase() === ticket.reference.toUpperCase() ? { ...m, isBoarded: true } : m
       );
 
       // Update trip boarded count
-      const updatedTrips = state.trips.map((tr) =>
+      const updatedTrips = current.trips.map((tr) =>
         tr.bus === bus ? { ...tr, boardedCount: tr.boardedCount + 1 } : tr
       );
 
       const auditLog: ValidationAuditLog = {
         id: `LOG-${Date.now()}`,
-        ticketReference: normalizedRef,
+        ticketReference: ticket.reference,
         passengerName: ticket.passengerName,
         route: ticket.route,
         status: "Valid",
@@ -693,29 +694,32 @@ export function useAppStore() {
         bus,
       };
 
+      const validatedTicket = updatedTickets.find((t) => t.id === ticket.id) || ticket;
+
       const nextState: SystemState = {
-        ...state,
+        ...current,
         tickets: updatedTickets,
         manifestPassengers: updatedManifest,
         trips: updatedTrips,
-        validationLogs: [auditLog, ...state.validationLogs],
+        validationLogs: [auditLog, ...current.validationLogs],
       };
 
       saveState(nextState);
-      return { success: true, reason: "valid", message: `Ticket ${normalizedRef} is VALID! Access granted for ${ticket.passengerName} (Seat ${ticket.seatNumber}).`, ticket };
+      return { success: true, reason: "valid", message: `Ticket ${ticket.reference} is VALID! Access granted for ${ticket.passengerName} (Seat ${ticket.seatNumber}).`, ticket: validatedTicket };
     },
 
     cancelTicket: (ticketId: string) => {
-      const target = state.tickets.find((t) => t.id === ticketId);
+      const current = getCurrentState();
+      const target = current.tickets.find((t) => t.id === ticketId);
       if (!target || target.status !== "unused") return false;
 
-      const updatedTickets = state.tickets.map((t) => (t.id === ticketId ? { ...t, status: "cancelled" as const } : t));
-      const updatedPayments = state.payments.map((p) =>
+      const updatedTickets = current.tickets.map((t) => (t.id === ticketId ? { ...t, status: "cancelled" as const } : t));
+      const updatedPayments = current.payments.map((p) =>
         p.ticketReference === target.reference ? { ...p, status: "Refunded" as const } : p
       );
 
       saveState({
-        ...state,
+        ...current,
         tickets: updatedTickets,
         payments: updatedPayments,
       });
@@ -723,45 +727,52 @@ export function useAppStore() {
     },
 
     addRoute: (route: Omit<AppRoute, "id">) => {
+      const current = getCurrentState();
       const newRoute: AppRoute = {
         ...route,
         id: `rt-${Date.now().toString().slice(-4)}`,
       };
-      saveState({ ...state, routes: [newRoute, ...state.routes] });
+      saveState({ ...current, routes: [newRoute, ...current.routes] });
       return newRoute;
     },
 
     updateRoute: (id: string, updates: Partial<AppRoute>) => {
-      const routes = state.routes.map((r) => (r.id === id ? { ...r, ...updates } : r));
-      saveState({ ...state, routes });
+      const current = getCurrentState();
+      const routes = current.routes.map((r) => (r.id === id ? { ...r, ...updates } : r));
+      saveState({ ...current, routes });
     },
 
     deleteRoute: (id: string) => {
-      const routes = state.routes.filter((r) => r.id !== id);
-      saveState({ ...state, routes });
+      const current = getCurrentState();
+      const routes = current.routes.filter((r) => r.id !== id);
+      saveState({ ...current, routes });
     },
 
     addBus: (bus: Omit<BusItem, "id">) => {
+      const current = getCurrentState();
       const newBus: BusItem = {
         ...bus,
         id: `BUS-${Date.now().toString().slice(-2)}`,
       };
-      saveState({ ...state, buses: [newBus, ...state.buses] });
+      saveState({ ...current, buses: [newBus, ...current.buses] });
       return newBus;
     },
 
     updateBus: (id: string, updates: Partial<BusItem>) => {
-      const buses = state.buses.map((b) => (b.id === id ? { ...b, ...updates } : b));
-      saveState({ ...state, buses });
+      const current = getCurrentState();
+      const buses = current.buses.map((b) => (b.id === id ? { ...b, ...updates } : b));
+      saveState({ ...current, buses });
     },
 
     deleteBus: (id: string) => {
-      const buses = state.buses.filter((b) => b.id !== id);
-      saveState({ ...state, buses });
+      const current = getCurrentState();
+      const buses = current.buses.filter((b) => b.id !== id);
+      saveState({ ...current, buses });
     },
 
     updateTripStatus: (tripId: string, status: ConductorTrip["status"], currentStopIndex?: number) => {
-      const trips = state.trips.map((t) =>
+      const current = getCurrentState();
+      const trips = current.trips.map((t) =>
         t.id === tripId
           ? {
               ...t,
@@ -770,46 +781,50 @@ export function useAppStore() {
             }
           : t
       );
-      saveState({ ...state, trips });
+      saveState({ ...current, trips });
     },
 
     toggleManifestBoarded: (manifestId: string, isBoarded: boolean) => {
-      const manifestPassengers = state.manifestPassengers.map((m) =>
+      const current = getCurrentState();
+      const manifestPassengers = current.manifestPassengers.map((m) =>
         m.id === manifestId ? { ...m, isBoarded } : m
       );
-      saveState({ ...state, manifestPassengers });
+      saveState({ ...current, manifestPassengers });
     },
 
     submitIncidentReport: (report: Omit<IncidentReport, "id" | "submittedAt" | "status">) => {
+      const current = getCurrentState();
       const newReport: IncidentReport = {
         ...report,
-        id: `REP-${Date.now().toString().slice(-4)}`,
-        status: "Submitted",
+        id: `INC-${Date.now().toString().slice(-4)}`,
         submittedAt: new Date().toISOString().replace("T", " ").slice(0, 16),
+        status: "Submitted",
       };
-      saveState({
-        ...state,
-        incidentReports: [newReport, ...state.incidentReports],
-      });
+      saveState({ ...current, incidentReports: [newReport, ...current.incidentReports] });
       return newReport;
     },
 
+
     submitFeedback: (feedback: Omit<UserFeedback, "id" | "date" | "status">) => {
+      const current = getCurrentState();
       const newFeedback: UserFeedback = {
         ...feedback,
         id: `FB-${Date.now().toString().slice(-4)}`,
-        date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+        date: new Date().toISOString().replace("T", " ").slice(0, 10),
         status: "Received",
       };
-      saveState({
-        ...state,
-        feedbackList: [newFeedback, ...state.feedbackList],
-      });
+      saveState({ ...current, feedbackList: [newFeedback, ...current.feedbackList] });
       return newFeedback;
     },
+
 
     resetToDefaults: () => {
       saveState(initialDefaultState);
     },
+
+    resetToDemoState: () => {
+      saveState(initialDefaultState);
+    },
+
   };
 }

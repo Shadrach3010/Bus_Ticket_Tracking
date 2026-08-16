@@ -299,7 +299,8 @@ export default function Home() {
         </section>
 
         {/* THREE WORKSPACE HUBS */}
-        <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
+        <section id="roles" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 scroll-mt-20">
+
           <div className="text-center max-w-3xl mx-auto">
             <Badge tone="blue" className="w-fit mx-auto">
               Role-Based Workspaces
@@ -418,7 +419,8 @@ export default function Home() {
         </section>
 
         {/* LIVE ROUTE TIMETABLE & CATALOG */}
-        <section className="border-y border-slate-800 bg-slate-950/60 py-16">
+        <section id="routes" className="border-y border-slate-800 bg-slate-950/60 py-16 scroll-mt-20">
+
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
               <div>

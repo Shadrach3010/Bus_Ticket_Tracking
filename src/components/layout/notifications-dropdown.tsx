@@ -113,26 +113,33 @@ export function NotificationsDropdown({ role }: { role: UserRole }) {
   const toast = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | "unread">("all");
-  const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem(NOTIFS_STORAGE_PREFIX + role);
-        if (saved) return JSON.parse(saved);
-      } catch {
-        // fallback
-      }
-    }
-    return initialRoleNotifications[role] || initialRoleNotifications.passenger;
-  });
+  const [notifications, setNotifications] = useState<NotificationItem[]>(
+    () => initialRoleNotifications[role] || initialRoleNotifications.passenger
+  );
+  const [isLoaded, setIsLoaded] = useState(false);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Load from localStorage on client mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(NOTIFS_STORAGE_PREFIX + role);
+      if (saved) {
+        setNotifications(JSON.parse(saved));
+      }
+    } catch {
+      // fallback
+    }
+    setIsLoaded(true);
+  }, [role]);
+
   // Sync to localStorage
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (isLoaded && typeof window !== "undefined") {
       localStorage.setItem(NOTIFS_STORAGE_PREFIX + role, JSON.stringify(notifications));
     }
-  }, [notifications, role]);
+  }, [notifications, role, isLoaded]);
+
 
   // Click outside listener
   useEffect(() => {
