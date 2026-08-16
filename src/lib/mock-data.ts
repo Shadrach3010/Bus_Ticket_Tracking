@@ -59,11 +59,18 @@ export const sampleTicket: DigitalTicket = {
   reference: "BT-2026-0148",
   passengerName: "Aminata Kamara",
   route: "Central Terminal to East Station",
+  origin: "Central Terminal",
+  destination: "East Station",
   departureTime: "08:30 AM",
-  travelDate: "Jul 30, 2026",
+  travelDate: "Aug 16, 2026",
   fare: 35,
+  seatNumber: "12A",
+  busNumber: "BUS-18",
   status: "unused",
+  purchasedAt: "2026-08-16 07:15",
+  paymentMethod: "Orange Money",
 };
+
 
 export const featureHighlights: FeatureHighlight[] = [
   {

@@ -17,6 +17,8 @@ import {
   Settings,
   Ticket,
   Users,
+  Shield,
+  AlertCircle,
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -43,7 +45,10 @@ const iconMap: Record<IconName, LucideIcon> = {
   settings: Settings,
   ticket: Ticket,
   users: Users,
+  shield: Shield,
+  alertCircle: AlertCircle,
 };
+
 
 type SidebarProps = {
   activePath: string;

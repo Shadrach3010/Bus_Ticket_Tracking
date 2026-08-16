@@ -1,9 +1,10 @@
 "use client";
 
-import { Bell, LogOut, Menu } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { NotificationsDropdown } from "@/components/layout/notifications-dropdown";
 import type { SessionPayload } from "@/types";
 
 type NavbarProps = {
@@ -34,15 +35,8 @@ export function Navbar({ onLogout, onMenuClick, title, user }: NavbarProps) {
         </div>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <Button
-            type="button"
-            variant="ghost"
-            aria-label="Notifications"
-            className="relative"
-          >
-            <Bell aria-hidden="true" className="h-5 w-5" />
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-orange-500" />
-          </Button>
+          <NotificationsDropdown role={user.role} />
+          
           <div className="hidden items-center gap-3 sm:flex">
             <Avatar name={user.name} />
             <div className="leading-tight">
@@ -59,3 +53,4 @@ export function Navbar({ onLogout, onMenuClick, title, user }: NavbarProps) {
     </header>
   );
 }
+

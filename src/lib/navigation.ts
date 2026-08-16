@@ -35,9 +35,11 @@ export const adminNavItems: DashboardNavItem[] = [
   { label: "Routes", href: "/admin/routes", icon: "map" },
   { label: "Buses", href: "/admin/buses", icon: "bus" },
   { label: "Reports", href: "/admin/reports", icon: "barChart" },
+  { label: "Profile", href: "/admin/profile", icon: "shield" },
   { label: "Settings", href: "/admin/settings", icon: "settings" },
   { label: "Users", href: "/admin/users", icon: "users" },
 ];
+
 
 export const dashboardNavigation: Record<UserRole, DashboardNavItem[]> = {
   passenger: passengerNavItems,

@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ToastProvider } from "@/components/ui/toast-provider";
 
 export const metadata: Metadata = {
-  title: "Real-Time Digital Bus Ticketing System",
+  title: "Real-Time Digital Bus Ticketing & Transit Management System",
   description:
-    "A secure frontend for purchasing QR-code bus tickets, verifying tickets, and managing transport reports.",
+    "A comprehensive platform for instant digital QR bus ticket booking, real-time conductor boarding verification, and transport fleet analytics.",
 };
 
 export default function RootLayout({
@@ -19,7 +20,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body
-        className="min-h-full bg-slate-50 text-slate-900"
+        className="min-h-full bg-slate-900 text-slate-900 selection:bg-blue-500 selection:text-white"
         suppressHydrationWarning
       >
         <a
@@ -28,8 +29,11 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        {children}
+        <ToastProvider>
+          {children}
+        </ToastProvider>
       </body>
     </html>
   );
 }
+
