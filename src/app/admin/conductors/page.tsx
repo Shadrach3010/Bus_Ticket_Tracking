@@ -7,48 +7,21 @@ import { useToast } from "@/components/ui/toast-provider";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 
-const conductorStaff = [
-  {
-    id: "conductor-001",
-    name: "Mohamed Bangura",
-    email: "conductor@example.com",
-    phone: "+23276222333",
-    assignedBus: "BUS-18",
-    assignedRoute: "Central Terminal to East Station",
-    validationsToday: 38,
-    status: "Active on Duty",
-  },
-  {
-    id: "conductor-002",
-    name: "Kadiatu Mansaray",
-    email: "kadiatu@example.com",
-    phone: "+23276888111",
-    assignedBus: "BUS-21",
-    assignedRoute: "Waterfront to University Gate",
-    validationsToday: 29,
-    status: "Active on Duty",
-  },
-  {
-    id: "conductor-003",
-    name: "Samuel Koroma",
-    email: "samuel@example.com",
-    phone: "+23276555999",
-    assignedBus: "BUS-14",
-    assignedRoute: "Market Square to North Depot",
-    validationsToday: 19,
-    status: "Standby",
-  },
-];
-
 export default function AdminConductorsPage() {
+  const store = useAppStore();
   const toast = useToast();
   const [search, setSearch] = useState("");
-  const [staffList, setStaffList] = useState(conductorStaff);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [assignedBus, setAssignedBus] = useState("BUS-18");
+  const [creating, setCreating] = useState(false);
+
+  const staffList=store.users.filter((user)=>user.role==="conductor").map((user)=>{
+    const bus=store.buses.find((item)=>item.conductorId===user.id);
+    return {id:user.id,name:user.name,email:user.email,phone:user.phone??"",assignedBus:bus?.id??"Unassigned",assignedRoute:bus?.routeName??"Unassigned",validationsToday:store.validationLogs.filter((log)=>log.conductorName===user.name).length,status:user.accountStatus==="Suspended"?"Suspended":"Active on Duty"};
+  });
 
   const filtered = staffList.filter(
     (c) =>
@@ -57,27 +30,17 @@ export default function AdminConductorsPage() {
       c.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !email.trim()) {
       toast.error("Required Fields", "Please provide name and email.");
       return;
     }
 
-    const newConductor = {
-      id: `conductor-${Date.now().toString().slice(-3)}`,
-      name,
-      email,
-      phone,
-      assignedBus,
-      assignedRoute: "Central Transit Line",
-      validationsToday: 0,
-      status: "Active on Duty",
-    };
-
-    setStaffList([newConductor, ...staffList]);
-    setIsModalOpen(false);
-    toast.success("Staff Enrolled", `Conductor ${name} enrolled and assigned to ${assignedBus}.`);
+    setCreating(true);
+    try { const parts=name.trim().split(/\s+/);const firstName=parts.shift()??"";const lastName=parts.join(" ")||"User";const r=await fetch("/api/admin/users",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({firstName,lastName,email,phone,role:"conductor",password:"ChangeMe123!"})});const p=await r.json();if(!r.ok)throw new Error(p.message);await store.updateBus(assignedBus,{conductorId:p.user.id,conductorName:name});await store.refresh();setIsModalOpen(false);toast.success("Staff Enrolled",`Conductor ${name} enrolled and assigned to ${assignedBus}.`);}
+    catch(error){toast.error("Enrollment Failed",error instanceof Error?error.message:"Unable to enroll conductor.");}
+    finally{setCreating(false);}
   };
 
   return (
@@ -114,7 +77,7 @@ export default function AdminConductorsPage() {
               <th className="px-6 py-4">Conductor Name</th>
               <th className="px-6 py-4">Assigned Bus & Line</th>
               <th className="px-6 py-4">Contact</th>
-              <th className="px-6 py-4">Today's Scans</th>
+              <th className="px-6 py-4">Today&apos;s Scans</th>
               <th className="px-6 py-4">Status</th>
             </tr>
           </thead>
@@ -210,7 +173,7 @@ export default function AdminConductorsPage() {
               >
                 Cancel
               </button>
-              <Button type="submit" className="bg-purple-600 hover:bg-purple-500">
+              <Button type="submit" loading={creating} className="bg-purple-600 hover:bg-purple-500">
                 Enroll Staff
               </Button>
             </div>

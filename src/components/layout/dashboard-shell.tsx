@@ -9,7 +9,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { Sidebar } from "@/components/layout/sidebar";
 import { DemoRoleBanner } from "@/components/layout/demo-role-banner";
 import { dashboardNavigation } from "@/lib/navigation";
-import type { SessionPayload, UserRole } from "@/types";
+import type { AuthUser, UserRole } from "@/types";
 
 function pageTitle(pathname: string) {
   const segment = pathname.split("/").filter(Boolean).at(-1) ?? "dashboard";
@@ -23,7 +23,7 @@ function pageTitle(pathname: string) {
 type DashboardShellProps = {
   children: ReactNode;
   role: UserRole;
-  user: SessionPayload;
+  user: AuthUser;
 };
 
 export function DashboardShell({ children, role, user }: DashboardShellProps) {

@@ -37,6 +37,7 @@ export function ResourcePage({
   const rowsPerPage = 5;
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLocalRows(rows);
     setPage(1);
   }, [rows]);

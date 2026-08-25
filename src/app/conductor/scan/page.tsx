@@ -35,7 +35,7 @@ import type { DigitalTicket } from "@/types";
 // Acoustic audio synthesizer using native Web Audio API
 function playScanSound(type: "valid" | "duplicate" | "invalid") {
   try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    const AudioCtx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
 
@@ -162,7 +162,7 @@ export default function ConductorScanPage() {
       }
       setCameraActive(true);
       setHasCameraSupport(true);
-    } catch (err: any) {
+    } catch {
       setCameraActive(false);
       // Graceful fallback to HUD sensor mode
     }
@@ -197,6 +197,7 @@ export default function ConductorScanPage() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     startCamera();
     return () => {
       stopCamera();
@@ -266,7 +267,7 @@ export default function ConductorScanPage() {
   }, [cameraActive, isScanning, validationResult, lastScannedCode]);
 
   // Process ticket reference through store validation engine
-  const handleValidate = (rawReference: string) => {
+  async function handleValidate(rawReference: string) {
     if (!rawReference.trim()) {
       toast.error("Empty Reference", "Please enter or scan a ticket reference number.");
       return;
@@ -281,9 +282,8 @@ export default function ConductorScanPage() {
       cleanRef = match[0].toUpperCase();
     }
 
-    setTimeout(() => {
-      setIsProcessing(false);
-      const res = store.validateTicket(cleanRef);
+    try {
+      const res = await store.validateTicket(cleanRef);
 
       if (res.success && res.ticket) {
         setValidationResult({
@@ -325,8 +325,14 @@ export default function ConductorScanPage() {
         triggerHaptic("invalid");
         toast.error("Invalid Pass", res.message);
       }
-    }, 250);
-  };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to validate the ticket.";
+      setValidationResult({ status: "invalid", message });
+      toast.error("Validation Failed", message);
+    } finally {
+      setIsProcessing(false);
+    }
+  }
 
   // Real client-side QR image snapshot decoder using Canvas + jsQR
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

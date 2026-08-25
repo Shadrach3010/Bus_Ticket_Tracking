@@ -6,7 +6,7 @@ import { useAppStore } from "@/lib/store/app-store";
 import { useToast } from "@/components/ui/toast-provider";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
-import type { BusStatus } from "@/types";
+import type { BusItem, BusStatus } from "@/types";
 
 export default function AdminBusesPage() {
   const store = useAppStore();
@@ -41,7 +41,7 @@ export default function AdminBusesPage() {
     setIsModalOpen(true);
   };
 
-  const handleOpenEdit = (b: any) => {
+  const handleOpenEdit = (b: BusItem) => {
     setEditingId(b.id);
     setPlate(b.plate);
     setModel(b.model);
@@ -52,7 +52,7 @@ export default function AdminBusesPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!plate.trim()) {
       toast.error("Plate Required", "Please enter registration plate number.");
@@ -61,8 +61,9 @@ export default function AdminBusesPage() {
 
     const matchedRoute = store.routes.find((r) => r.id === routeId) || store.routes[0];
 
-    if (editingId) {
-      store.updateBus(editingId, {
+    try {
+      if (editingId) {
+      await store.updateBus(editingId, {
         plate,
         model,
         capacity: Number(capacity) || 40,
@@ -73,7 +74,7 @@ export default function AdminBusesPage() {
       });
       toast.success("Bus Updated", `Fleet bus ${plate} updated.`);
     } else {
-      store.addBus({
+      await store.addBus({
         plate,
         model,
         capacity: Number(capacity) || 40,
@@ -84,15 +85,15 @@ export default function AdminBusesPage() {
         amenities: ["Air Conditioning", "WiFi", "USB Charging"],
       });
       toast.success("Bus Added", `New bus ${plate} enrolled in active fleet.`);
-    }
-
-    setIsModalOpen(false);
+      }
+      setIsModalOpen(false);
+    } catch(error){toast.error("Save Failed",error instanceof Error?error.message:"Unable to save bus.");}
   };
 
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string) => {
     if (confirm(`Remove bus ${name} from fleet inventory?`)) {
-      store.deleteBus(id);
-      toast.info("Bus Decommissioned", `Bus ${name} removed.`);
+      try { await store.deleteBus(id); toast.info("Bus Decommissioned", `Bus ${name} removed.`); }
+      catch(error){toast.error("Delete Failed",error instanceof Error?error.message:"Unable to delete bus.");}
     }
   };
 
@@ -231,7 +232,7 @@ export default function AdminBusesPage() {
                 <label className="font-bold text-slate-700">Operational Status</label>
                 <select
                   value={status}
-                  onChange={(e) => setStatus(e.target.value as any)}
+                  onChange={(e) => setStatus(e.target.value as BusStatus)}
                   className="w-full rounded-xl border border-slate-300 p-2.5 text-slate-900 outline-none focus:border-purple-500"
                 >
                   <option value="In Service">In Service</option>

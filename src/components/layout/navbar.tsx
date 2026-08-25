@@ -1,38 +1,23 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import Link from "next/link";
 import { LogOut, Menu, User, Shield, BadgeCheck } from "lucide-react";
 
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { NotificationsDropdown } from "@/components/layout/notifications-dropdown";
-import type { SessionPayload } from "@/types";
+import type { AuthUser } from "@/types";
 
 type NavbarProps = {
   onLogout: () => void;
   onMenuClick: () => void;
   title: string;
-  user: SessionPayload;
+  user: AuthUser;
 };
 
 export function Navbar({ onLogout, onMenuClick, title, user }: NavbarProps) {
-  const [profileImage, setProfileImage] = useState<string>("");
-
-  useEffect(() => {
-    const key = `${user.role}_profile_data`;
-    try {
-      const saved = localStorage.getItem(key);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.profileImage) {
-          setProfileImage(parsed.profileImage);
-        }
-      }
-    } catch {
-      // fallback
-    }
-  }, [user.role]);
+  const profileImage = user.avatarUrl ?? "";
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">

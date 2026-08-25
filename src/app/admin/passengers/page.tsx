@@ -5,53 +5,16 @@ import { Users, Search, CheckCircle2, AlertCircle, Phone, Mail, CreditCard } fro
 import { useAppStore } from "@/lib/store/app-store";
 import { useToast } from "@/components/ui/toast-provider";
 
-const registeredPassengers = [
-  {
-    id: "passenger-001",
-    name: "Aminata Kamara",
-    email: "passenger@example.com",
-    phone: "+23276123456",
-    nationalId: "SL-PAS-992140",
-    totalBookings: 8,
-    totalSpent: 280,
-    status: "Active",
-  },
-  {
-    id: "passenger-002",
-    name: "Ibrahim Sesay",
-    email: "ibrahim@example.com",
-    phone: "+23276888999",
-    nationalId: "SL-PAS-331002",
-    totalBookings: 5,
-    totalSpent: 175,
-    status: "Active",
-  },
-  {
-    id: "passenger-003",
-    name: "Fatmata Jalloh",
-    email: "fatmata@example.com",
-    phone: "+23276555444",
-    nationalId: "SL-PAS-772911",
-    totalBookings: 3,
-    totalSpent: 126,
-    status: "Active",
-  },
-  {
-    id: "passenger-004",
-    name: "Abu Bakarr Cole",
-    email: "abu@example.com",
-    phone: "+23276777222",
-    nationalId: "SL-PAS-881900",
-    totalBookings: 2,
-    totalSpent: 70,
-    status: "Active",
-  },
-];
-
 export default function AdminPassengersPage() {
+  const store = useAppStore();
   const toast = useToast();
   const [search, setSearch] = useState("");
-  const [passengers, setPassengers] = useState(registeredPassengers);
+  const passengers = store.users.filter((user)=>user.role==="passenger").map((user)=>({
+    ...user, nationalId:user.nationalId??"—",
+    totalBookings:store.tickets.filter((ticket)=>ticket.passengerId===user.id).length,
+    totalSpent:store.payments.filter((payment)=>payment.passengerEmail===user.email&&payment.status==="Successful").reduce((sum,payment)=>sum+payment.amount,0),
+    status:user.accountStatus??"Active",
+  }));
 
   const filtered = passengers.filter(
     (p) =>
@@ -60,13 +23,10 @@ export default function AdminPassengersPage() {
       p.nationalId.toLowerCase().includes(search.toLowerCase())
   );
 
-  const toggleStatus = (id: string, name: string) => {
-    setPassengers((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, status: p.status === "Active" ? "Suspended" : "Active" } : p
-      )
-    );
-    toast.info("Account Status Changed", `Passenger account for ${name} toggled.`);
+  const toggleStatus = async (id: string, name: string) => {
+    const current=passengers.find((p)=>p.id===id)?.status; const status=current==="Active"?"Suspended":"Active";
+    try { const r=await fetch("/api/admin/users",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,status})});const p=await r.json();if(!r.ok)throw new Error(p.message);await store.refresh();toast.info("Account Status Changed", `Passenger account for ${name} is now ${status}.`); }
+    catch(error){toast.error("Update Failed",error instanceof Error?error.message:"Unable to update account.");}
   };
 
   return (

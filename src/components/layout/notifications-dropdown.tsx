@@ -26,7 +26,7 @@ export interface NotificationItem {
   type: "ticket" | "bus" | "payment" | "scan" | "security" | "system";
 }
 
-const initialRoleNotifications: Record<UserRole, NotificationItem[]> = {
+export const DEMO_NOTIFICATION_EXAMPLES: Record<UserRole, NotificationItem[]> = {
   passenger: [
     {
       id: "notif-p1",
@@ -107,38 +107,19 @@ const initialRoleNotifications: Record<UserRole, NotificationItem[]> = {
   ],
 };
 
-const NOTIFS_STORAGE_PREFIX = "bus_transit_notifs_";
-
 export function NotificationsDropdown({ role }: { role: UserRole }) {
   const toast = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | "unread">("all");
-  const [notifications, setNotifications] = useState<NotificationItem[]>(
-    () => initialRoleNotifications[role] || initialRoleNotifications.passenger
-  );
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Load from localStorage on client mount
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(NOTIFS_STORAGE_PREFIX + role);
-      if (saved) {
-        setNotifications(JSON.parse(saved));
-      }
-    } catch {
-      // fallback
-    }
-    setIsLoaded(true);
-  }, [role]);
-
-  // Sync to localStorage
-  useEffect(() => {
-    if (isLoaded && typeof window !== "undefined") {
-      localStorage.setItem(NOTIFS_STORAGE_PREFIX + role, JSON.stringify(notifications));
-    }
-  }, [notifications, role, isLoaded]);
+    fetch("/api/notifications").then((response)=>response.json()).then(({notifications:rows=[]})=>{
+      setNotifications(rows.map((row: { id:string;title:string;message:string;created_at:string;read:boolean;type:NotificationItem["type"] })=>({id:row.id,title:row.title,message:row.message,time:new Intl.RelativeTimeFormat("en",{numeric:"auto"}).format(-Math.max(0,Math.round((Date.now()-new Date(row.created_at).getTime())/60000)),"minute"),read:row.read,type:row.type})));
+    }).catch(()=>toast.error("Notifications Unavailable","Unable to load notifications."));
+  }, [role, toast]);
 
 
   // Click outside listener
@@ -161,23 +142,26 @@ export function NotificationsDropdown({ role }: { role: UserRole }) {
 
   const handleMarkAllAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    void fetch("/api/notifications",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({all:true})});
     toast.info("Notifications Updated", "All messages marked as read.");
   };
 
   const handleClearAll = () => {
     setNotifications([]);
+    void fetch("/api/notifications",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({all:true})});
     toast.info("Notifications Cleared", "All notifications removed.");
   };
 
   const handleToggleRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: !n.read } : n))
-    );
+    const target=notifications.find((n)=>n.id===id);
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: !n.read } : n)));
+    void fetch("/api/notifications",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,read:!target?.read})});
   };
 
   const handleDeleteItem = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+    void fetch("/api/notifications",{method:"DELETE",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});
   };
 
   const getIcon = (type: NotificationItem["type"]) => {

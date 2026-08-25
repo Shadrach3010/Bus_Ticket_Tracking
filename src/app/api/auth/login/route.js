@@ -1,14 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getSessionCookieOptions } from "@/lib/auth/session";
-import {
-  createSessionToken,
-  SESSION_COOKIE_NAME,
-} from "@/lib/auth/token";
-import {
-  findUserByCredentials,
-  getPublicUser,
-} from "@/lib/auth/mock-users";
+import { createClient } from "@/lib/supabase/server";
 import { roleEntryRoutes } from "@/lib/constants";
 import { emailPattern, isUserRole } from "@/lib/validation";
 
@@ -25,27 +17,24 @@ export async function POST(request) {
     );
   }
 
-  const user = findUserByCredentials(email, password, role);
-
-  if (!user) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error || !data.user) {
     return NextResponse.json(
       { message: "Account not found or password is incorrect." },
       { status: 401 },
     );
   }
 
-  const publicUser = getPublicUser(user);
-  const token = createSessionToken(publicUser);
-  const response = NextResponse.json({
-    user: publicUser,
-    redirectTo: roleEntryRoutes[publicUser.role],
-  });
-
-  response.cookies.set(
-    SESSION_COOKIE_NAME,
-    token,
-    getSessionCookieOptions(),
-  );
-
-  return response;
+  const { data: profile } = await supabase.from("profiles").select("id,first_name,middle_name,last_name,email,phone,national_id,role").eq("id", data.user.id).single();
+  if (!profile || profile.role !== role) {
+    await supabase.auth.signOut();
+    return NextResponse.json({ message: "This account does not have the selected role." }, { status: 403 });
+  }
+  const user = {
+    id: profile.id, firstName: profile.first_name, middleName: profile.middle_name || undefined,
+    lastName: profile.last_name, name: [profile.first_name, profile.middle_name, profile.last_name].filter(Boolean).join(" "),
+    email: profile.email, phone: profile.phone || undefined, nationalId: profile.national_id || undefined, role: profile.role,
+  };
+  return NextResponse.json({ user, redirectTo: roleEntryRoutes[user.role] });
 }

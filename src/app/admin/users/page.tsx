@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Users, Plus, Search, ShieldCheck, UserCheck, Shield } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
+import type { UserRole } from "@/types";
 import { useToast } from "@/components/ui/toast-provider";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -12,40 +13,37 @@ export default function AdminUsersPage() {
   const toast = useToast();
 
   const [search, setSearch] = useState("");
-  const [userList, setUserList] = useState(store.users);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"passenger" | "conductor" | "administrator">("passenger");
+  const [password, setPassword] = useState("ChangeMe123!");
+  const [creating, setCreating] = useState(false);
 
-  const filtered = userList.filter(
+  const filtered = store.users.filter(
     (u) =>
       u.name.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase()) ||
       u.role.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firstName.trim() || !lastName.trim() || !email.trim()) {
       toast.error("Invalid Input", "Please fill in all user profile details.");
       return;
     }
 
-    const newUser = {
-      id: `user-${Date.now().toString().slice(-4)}`,
-      firstName,
-      lastName,
-      name: `${firstName} ${lastName}`,
-      email,
-      role,
-    };
-
-    setUserList([newUser, ...userList]);
-    setIsModalOpen(false);
-    toast.success("User Account Created", `Account for ${newUser.name} created as ${role.toUpperCase()}.`);
+    setCreating(true);
+    try {
+      const response=await fetch("/api/admin/users",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({firstName,lastName,email,role,password})});
+      const payload=await response.json(); if(!response.ok)throw new Error(payload.message);
+      await store.refresh(); setIsModalOpen(false);
+      toast.success("User Account Created", `Account for ${firstName} ${lastName} created as ${role.toUpperCase()}.`);
+    } catch(error) { toast.error("Creation Failed",error instanceof Error?error.message:"Unable to create account."); }
+    finally { setCreating(false); }
   };
 
   return (
@@ -166,10 +164,15 @@ export default function AdminUsersPage() {
             </div>
 
             <div className="space-y-1">
+              <label className="font-bold text-slate-700">Temporary Password</label>
+              <input type="password" required value={password} onChange={(e)=>setPassword(e.target.value)} className="w-full rounded-xl border border-slate-300 p-2.5 text-slate-900 outline-none focus:border-purple-500" />
+            </div>
+
+            <div className="space-y-1">
               <label className="font-bold text-slate-700">System Role</label>
               <select
                 value={role}
-                onChange={(e) => setRole(e.target.value as any)}
+                onChange={(e) => setRole(e.target.value as UserRole)}
                 className="w-full rounded-xl border border-slate-300 p-2.5 text-slate-900 outline-none focus:border-purple-500"
               >
                 <option value="passenger">Passenger (Booking & Wallet)</option>
@@ -186,7 +189,7 @@ export default function AdminUsersPage() {
               >
                 Cancel
               </button>
-              <Button type="submit" className="bg-purple-600 hover:bg-purple-500">
+              <Button type="submit" loading={creating} className="bg-purple-600 hover:bg-purple-500">
                 Create Account
               </Button>
             </div>

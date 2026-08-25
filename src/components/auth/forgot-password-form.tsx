@@ -26,9 +26,12 @@ export function ForgotPasswordForm() {
     setError("");
     setLoading(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setLoading(false);
-    setSuccess("Password recovery request received.");
+    try {
+      const response=await fetch("/api/auth/forgot-password",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email})});
+      const payload=await response.json(); if(!response.ok)throw new Error(payload.message);
+      setSuccess("If the account exists, a password recovery link has been sent.");
+    } catch(c) { setError(c instanceof Error?c.message:"Unable to request password recovery."); }
+    finally { setLoading(false); }
   }
 
   return (

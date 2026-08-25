@@ -1,8 +1,7 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-
+import { NextResponse, type NextRequest } from "next/server";
 import { roleEntryRoutes } from "@/lib/constants";
-import { parseSessionToken, SESSION_COOKIE_NAME } from "@/lib/auth/token";
+import { hasSupabaseEnv } from "@/lib/supabase/env";
+import { updateSession } from "@/lib/supabase/proxy";
 import type { UserRole } from "@/types";
 
 const protectedPrefixes: Array<{ prefix: string; role: UserRole }> = [
@@ -13,32 +12,34 @@ const protectedPrefixes: Array<{ prefix: string; role: UserRole }> = [
 
 const authRoutes = ["/login", "/register", "/forgot-password"];
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
+  if (!hasSupabaseEnv()) return NextResponse.next();
   const { pathname } = request.nextUrl;
-  const session = parseSessionToken(
-    request.cookies.get(SESSION_COOKIE_NAME)?.value,
-  );
+  const { response, userId, supabase } = await updateSession(request);
   const protectedRoute = protectedPrefixes.find(({ prefix }) =>
     pathname.startsWith(prefix),
   );
 
-  if (protectedRoute && !session) {
+  if (!userId) {
+    if (!protectedRoute) return response;
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirectTo", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  if (protectedRoute && session && session.role !== protectedRoute.role) {
-    return NextResponse.redirect(new URL(roleEntryRoutes[session.role], request.url));
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
+  const role = profile?.role as UserRole | undefined;
+  if (!role) return NextResponse.redirect(new URL("/login", request.url));
+  if (protectedRoute && role !== protectedRoute.role) {
+    return NextResponse.redirect(new URL(roleEntryRoutes[role], request.url));
   }
 
-  if (session && authRoutes.includes(pathname)) {
-    return NextResponse.redirect(new URL(roleEntryRoutes[session.role], request.url));
+  if (authRoutes.includes(pathname)) {
+    return NextResponse.redirect(new URL(roleEntryRoutes[role], request.url));
   }
-
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 };

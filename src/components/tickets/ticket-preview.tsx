@@ -25,7 +25,7 @@ import { useToast } from "@/components/ui/toast-provider";
 
 type TicketPreviewProps = {
   ticket: DigitalTicket;
-  onCancel?: (ticketId: string) => void;
+  onCancel?: (ticketId: string) => void | Promise<void>;
   showActions?: boolean;
 };
 

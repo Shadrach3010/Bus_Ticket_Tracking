@@ -6,6 +6,7 @@ import { useAppStore } from "@/lib/store/app-store";
 import { useToast } from "@/components/ui/toast-provider";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
+import type { AppRoute } from "@/types";
 
 export default function AdminRoutesPage() {
   const store = useAppStore();
@@ -40,7 +41,7 @@ export default function AdminRoutesPage() {
     setIsModalOpen(true);
   };
 
-  const handleOpenEdit = (route: any) => {
+  const handleOpenEdit = (route: AppRoute) => {
     setEditingId(route.id);
     setOrigin(route.origin);
     setDestination(route.destination);
@@ -51,15 +52,16 @@ export default function AdminRoutesPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!origin.trim() || !destination.trim()) {
       toast.error("Invalid Fields", "Please specify origin and destination.");
       return;
     }
 
-    if (editingId) {
-      store.updateRoute(editingId, {
+    try {
+      if (editingId) {
+      await store.updateRoute(editingId, {
         origin,
         destination,
         fare: Number(fare) || 35,
@@ -69,7 +71,7 @@ export default function AdminRoutesPage() {
       });
       toast.success("Route Updated", `Route ${origin} → ${destination} updated successfully.`);
     } else {
-      store.addRoute({
+      await store.addRoute({
         origin,
         destination,
         fare: Number(fare) || 35,
@@ -80,15 +82,15 @@ export default function AdminRoutesPage() {
         stops: [origin, "Intermediate Junction", destination],
       });
       toast.success("Route Created", `New route ${origin} → ${destination} added to transit network.`);
-    }
-
-    setIsModalOpen(false);
+      }
+      setIsModalOpen(false);
+    } catch(error) { toast.error("Save Failed",error instanceof Error?error.message:"Unable to save route."); }
   };
 
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = async (id: string, name: string) => {
     if (confirm(`Are you sure you want to remove route: ${name}?`)) {
-      store.deleteRoute(id);
-      toast.info("Route Removed", `Route ${name} was deleted.`);
+      try { await store.deleteRoute(id); toast.info("Route Removed", `Route ${name} was deleted.`); }
+      catch(error){toast.error("Delete Failed",error instanceof Error?error.message:"Unable to delete route.");}
     }
   };
 

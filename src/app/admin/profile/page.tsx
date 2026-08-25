@@ -34,22 +34,10 @@ export default function AdminProfilePage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("admin_profile_data");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setProfileImage(parsed.profileImage || "");
-        setFirstName(parsed.firstName || "Man");
-        setLastName(parsed.lastName || "Conteh");
-        setPhone(parsed.phone || "+23276333444");
-        setDepartment(parsed.department || "Central Transit Executive Authority");
-      } catch {
-        // fallback
-      }
-    }
+    fetch("/api/auth/profile").then((r)=>r.json()).then(({user})=>{if(!user)return;setProfileImage(user.avatarUrl||"");setFirstName(user.firstName||"");setLastName(user.lastName||"");setEmail(user.email||"");setPhone(user.phone||"");}).catch(()=>toast.error("Profile Unavailable","Unable to load your profile."));
   }, []);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
 
@@ -64,18 +52,14 @@ export default function AdminProfilePage() {
       twoFactorEnabled,
     };
 
-    localStorage.setItem("admin_profile_data", JSON.stringify(payload));
-
-    fetch("/api/auth/profile", {
+    try { const response=await fetch("/api/auth/profile", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-    }).catch(() => {});
-
-    setTimeout(() => {
+    }); const result=await response.json(); if(!response.ok)throw new Error(result.message);
       setSaving(false);
       toast.success("Administrator Profile Updated", "Executive credentials and photo saved.");
-    }, 600);
+    } catch(error) { setSaving(false); toast.error("Update Failed",error instanceof Error?error.message:"Unable to save profile."); }
   };
 
   return (

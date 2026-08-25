@@ -5,6 +5,7 @@ import { AlertTriangle, Send, FileText, CheckCircle2, ShieldAlert } from "lucide
 import { useAppStore } from "@/lib/store/app-store";
 import { useToast } from "@/components/ui/toast-provider";
 import { Button } from "@/components/ui/button";
+import type { IncidentReport } from "@/types";
 
 export default function ConductorReportsPage() {
   const store = useAppStore();
@@ -62,7 +63,7 @@ export default function ConductorReportsPage() {
                 <select
                   id="incident-type"
                   value={type}
-                  onChange={(e) => setType(e.target.value as any)}
+                  onChange={(e) => setType(e.target.value as IncidentReport["type"])}
                   className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs font-semibold text-slate-900 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
                 >
                   <option value="Delay">Traffic / Schedule Delay</option>
@@ -81,7 +82,7 @@ export default function ConductorReportsPage() {
                 <select
                   id="incident-severity"
                   value={severity}
-                  onChange={(e) => setSeverity(e.target.value as any)}
+                  onChange={(e) => setSeverity(e.target.value as IncidentReport["severity"])}
                   className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs font-semibold text-slate-900 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
                 >
                   <option value="Low">Low (Informational)</option>

@@ -76,9 +76,8 @@ export default function PassengerBookTicketPage() {
 
     setIsProcessing(true);
 
-    // Simulate payment gateway validation delay
-    setTimeout(() => {
-      const ticket = store.bookTicket({
+    try {
+      const ticket = await store.bookTicket({
         passengerName,
         passengerPhone,
         routeId: selectedRoute.id,
@@ -87,11 +86,14 @@ export default function PassengerBookTicketPage() {
         paymentMethod,
       });
 
-      setIsProcessing(false);
       setBookedTicket(ticket);
       setStep(4);
       toast.success("Booking Confirmed!", `Digital Ticket ${ticket.reference} generated successfully.`);
-    }, 1200);
+    } catch (error) {
+      toast.error("Booking Failed", error instanceof Error ? error.message : "Unable to book this ticket.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (

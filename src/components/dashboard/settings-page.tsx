@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Bell, ShieldCheck, SlidersHorizontal, Moon, Volume2, Globe, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast-provider";
@@ -12,9 +12,28 @@ export function SettingsPage({ title }: { title: string }) {
   const [audioChime, setAudioChime] = useState(true);
   const [currency, setCurrency] = useState("NLe (Leone)");
   const [theme, setTheme] = useState("System Default");
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    toast.success("Preferences Saved", "Your workspace settings have been synchronized.");
+  useEffect(() => {
+    fetch("/api/preferences").then((response) => response.json()).then(({ preferences }) => {
+      if (!preferences) return;
+      setPushEnabled(preferences.push_enabled);
+      setEmailAlerts(preferences.email_alerts);
+      setAudioChime(preferences.audio_chime);
+      setCurrency(preferences.currency);
+      setTheme(preferences.theme);
+    }).catch(() => toast.error("Settings Unavailable", "Unable to load your saved preferences."));
+  }, [toast]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const response=await fetch("/api/preferences",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({pushEnabled,emailAlerts,audioChime,currency,theme})});
+      const payload=await response.json(); if(!response.ok)throw new Error(payload.message);
+      toast.success("Preferences Saved", "Your workspace settings have been synchronized.");
+    } catch (error) {
+      toast.error("Save Failed", error instanceof Error ? error.message : "Unable to save preferences.");
+    } finally { setSaving(false); }
   };
 
   return (
@@ -135,7 +154,7 @@ export function SettingsPage({ title }: { title: string }) {
         </div>
 
         <div className="flex justify-end pt-2">
-          <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-500">
+          <Button onClick={handleSave} loading={saving} className="bg-blue-600 hover:bg-blue-500">
             Save Preferences
           </Button>
         </div>

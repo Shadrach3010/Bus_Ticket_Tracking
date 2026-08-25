@@ -134,7 +134,7 @@ export default function PassengerDashboardPage() {
           </div>
 
           {nextTicket ? (
-            <TicketPreview ticket={nextTicket} onCancel={(id) => store.cancelTicket(id)} />
+            <TicketPreview ticket={nextTicket} onCancel={async (id) => { await store.cancelTicket(id); }} />
           ) : (
             <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-10 text-center">
               <Ticket className="mx-auto h-10 w-10 text-slate-400" />

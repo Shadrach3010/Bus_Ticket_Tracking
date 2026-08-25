@@ -33,25 +33,10 @@ export default function PassengerProfilePage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem("passenger_profile_data");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setProfileImage(parsed.profileImage || "");
-        setFirstName(parsed.firstName || "Aminata");
-        setLastName(parsed.lastName || "Kamara");
-        setPhone(parsed.phone || "+23276123456");
-        setNationalId(parsed.nationalId || "SL-PAS-992140");
-        setEmergencyContact(parsed.emergencyContact || "Abu Kamara (+23276999000)");
-        setPreferredSeat(parsed.preferredSeat || "Window Seat");
-        setPreferredPayment(parsed.preferredPayment || "Orange Money");
-      } catch {
-        // fallback
-      }
-    }
+    fetch("/api/auth/profile").then((r)=>r.json()).then(({user})=>{if(!user)return;setProfileImage(user.avatarUrl||"");setFirstName(user.firstName||"");setLastName(user.lastName||"");setEmail(user.email||"");setPhone(user.phone||"");setNationalId(user.nationalId||"");setEmergencyContact(user.emergencyContact||"");}).catch(()=>toast.error("Profile Unavailable","Unable to load your profile."));
   }, []);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
 
@@ -67,18 +52,14 @@ export default function PassengerProfilePage() {
       preferredPayment,
     };
 
-    localStorage.setItem("passenger_profile_data", JSON.stringify(payload));
-
-    fetch("/api/auth/profile", {
+    try { const response=await fetch("/api/auth/profile", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-    }).catch(() => {});
-
-    setTimeout(() => {
+    }); const result=await response.json(); if(!response.ok)throw new Error(result.message);
       setSaving(false);
       toast.success("Profile Updated", "Your passenger profile photo and preferences have been saved.");
-    }, 600);
+    } catch(error) { setSaving(false); toast.error("Update Failed",error instanceof Error?error.message:"Unable to save profile."); }
   };
 
   return (

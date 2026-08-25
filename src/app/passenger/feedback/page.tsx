@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Star, MessageSquare, Send, CheckCircle2, ThumbsUp } from "lucide-react";
 import { useAppStore } from "@/lib/store/app-store";
 import { useToast } from "@/components/ui/toast-provider";
+import type { UserFeedback } from "@/types";
 import { Button } from "@/components/ui/button";
 
 export default function PassengerFeedbackPage() {
@@ -108,7 +109,7 @@ export default function PassengerFeedbackPage() {
               <select
                 id="feedback-category"
                 value={category}
-                onChange={(e) => setCategory(e.target.value as any)}
+                onChange={(e) => setCategory(e.target.value as UserFeedback["category"])}
                 className="w-full rounded-xl border border-slate-300 bg-white p-2.5 text-xs font-semibold text-slate-900 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none"
               >
                 <option value="Punctuality">Bus Punctuality & Timing</option>

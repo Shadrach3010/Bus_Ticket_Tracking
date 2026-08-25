@@ -1,19 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { User, QrCode, Shield, Sparkles, RefreshCw, LogIn } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { User, QrCode, Shield, Sparkles, RefreshCw } from "lucide-react";
 import { useToast } from "@/components/ui/toast-provider";
 import { useAppStore } from "@/lib/store/app-store";
 
 export function DemoRoleBanner() {
   const router = useRouter();
-  const pathname = usePathname();
   const toast = useToast();
   const store = useAppStore();
   const [loadingRole, setLoadingRole] = useState<string | null>(null);
-
-  const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/register") || pathname === "/";
+  const demoEnabled = process.env.NEXT_PUBLIC_ENABLE_DEMO_MODE === "true";
 
   const handleQuickLogin = async (role: "passenger" | "conductor" | "administrator", email: string) => {
     setLoadingRole(role);
@@ -36,20 +34,19 @@ export function DemoRoleBanner() {
       toast.success("Switched Role", `Now logged in as ${data.user.name} (${role.toUpperCase()})`);
       router.push(data.redirectTo);
       router.refresh();
-    } catch (err: any) {
-      toast.error("Quick Switch Failed", err.message);
+    } catch (err: unknown) {
+      toast.error("Quick Switch Failed", err instanceof Error ? err.message : "Unable to switch roles.");
     } finally {
       setLoadingRole(null);
     }
   };
 
-  const handleResetData = () => {
-    if (confirm("Reset all system data (tickets, routes, logs) back to fresh default demo state?")) {
-      store.resetToDefaults();
-      toast.info("System Reset", "Default routes, buses, and tickets restored.");
-      window.location.reload();
-    }
+  const handleResetData = async () => {
+    await store.refresh();
+    toast.info("Data Refreshed", "The latest records were loaded from Supabase.");
   };
+
+  if (!demoEnabled) return null;
 
   return (
     <div className="no-print border-b border-blue-900/60 bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 px-4 py-2 text-white shadow-md">
@@ -92,11 +89,11 @@ export function DemoRoleBanner() {
 
           <button
             onClick={handleResetData}
-            title="Reset system demo state"
+            title="Refresh database data"
             className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800/60 px-2 py-1 text-slate-400 hover:bg-slate-700 hover:text-white transition"
           >
             <RefreshCw className="h-3 w-3" />
-            <span className="hidden md:inline">Reset Demo</span>
+            <span className="hidden md:inline">Refresh Data</span>
           </button>
         </div>
       </div>

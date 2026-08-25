@@ -170,6 +170,7 @@ export type AuthUser = {
   phone?: string;
   nationalId?: string;
   role: UserRole;
+  accountStatus?: "Active" | "Suspended";
   avatarUrl?: string;
   emergencyContact?: string;
   preferredCurrency?: string;

@@ -14,11 +14,14 @@ export default function PassengerTicketsPage() {
   const [filterStatus, setFilterStatus] = useState<"all" | "unused" | "used" | "cancelled">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const handleCancelTicket = (id: string) => {
+  const handleCancelTicket = async (id: string) => {
     if (confirm("Are you sure you want to cancel this ticket and request a refund?")) {
-      const ok = store.cancelTicket(id);
-      if (ok) {
+      try {
+        const ok = await store.cancelTicket(id);
+        if (!ok) throw new Error("Only unused tickets can be cancelled.");
         toast.info("Ticket Cancelled", "Ticket has been cancelled and refund initiated.");
+      } catch (error) {
+        toast.error("Cancellation Failed", error instanceof Error ? error.message : "Unable to cancel ticket.");
       }
     }
   };

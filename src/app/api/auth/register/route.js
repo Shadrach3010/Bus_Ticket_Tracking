@@ -1,15 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { getSessionCookieOptions } from "@/lib/auth/session";
-import {
-  createSessionToken,
-  SESSION_COOKIE_NAME,
-} from "@/lib/auth/token";
-import {
-  createPassengerUser,
-  emailExists,
-  getPublicUser,
-} from "@/lib/auth/mock-users";
+import { createClient } from "@/lib/supabase/server";
 import { roleEntryRoutes } from "@/lib/constants";
 import {
   emailPattern,
@@ -51,34 +42,18 @@ export async function POST(request) {
     );
   }
 
-  if (emailExists(email)) {
-    return NextResponse.json(
-      { message: "A passenger account already exists for this email." },
-      { status: 409 },
-    );
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signUp({
+    email, password,
+    options: { data: { first_name: firstName, middle_name: middleName, last_name: lastName, phone, national_id: nationalId, role: "passenger" } },
+  });
+  if (error) {
+    const status = error.message.toLowerCase().includes("already") ? 409 : 400;
+    return NextResponse.json({ message: error.message }, { status });
   }
-
-  const user = createPassengerUser({
-    firstName,
-    middleName,
-    lastName,
-    email,
-    phone,
-    nationalId,
-    password,
+  return NextResponse.json({
+    user: data.user,
+    redirectTo: data.session ? roleEntryRoutes.passenger : "/login",
+    requiresEmailConfirmation: !data.session,
   });
-  const publicUser = getPublicUser(user);
-  const token = createSessionToken(publicUser);
-  const response = NextResponse.json({
-    user: publicUser,
-    redirectTo: roleEntryRoutes.passenger,
-  });
-
-  response.cookies.set(
-    SESSION_COOKIE_NAME,
-    token,
-    getSessionCookieOptions(),
-  );
-
-  return response;
 }
