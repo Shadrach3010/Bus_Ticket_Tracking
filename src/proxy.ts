@@ -27,9 +27,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const { data: profile } = await supabase.from("profiles").select("role").eq("id", userId).single();
+  const { data: profile } = await supabase.from("profiles").select("role,account_status").eq("id", userId).single();
   const role = profile?.role as UserRole | undefined;
-  if (!role) return NextResponse.redirect(new URL("/login", request.url));
+  if (!role || profile?.account_status === "Suspended") return NextResponse.redirect(new URL("/login", request.url));
   if (protectedRoute && role !== protectedRoute.role) {
     return NextResponse.redirect(new URL(roleEntryRoutes[role], request.url));
   }

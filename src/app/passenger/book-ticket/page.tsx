@@ -23,6 +23,8 @@ import { useAppStore } from "@/lib/store/app-store";
 import { useToast } from "@/components/ui/toast-provider";
 import { TicketPreview } from "@/components/tickets/ticket-preview";
 import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/alert";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import type { DigitalTicket, PaymentMethod } from "@/types";
 
 
@@ -30,9 +32,6 @@ import type { DigitalTicket, PaymentMethod } from "@/types";
 const rows = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const seatColsLeft = ["A", "B"];
 const seatColsRight = ["C", "D"];
-
-// Pre-occupied seats simulation
-const occupiedSeats = ["02A", "03C", "05B", "07D", "08A", "10C"];
 
 export default function PassengerBookTicketPage() {
   const router = useRouter();
@@ -58,6 +57,9 @@ export default function PassengerBookTicketPage() {
     () => store.routes.find((r) => r.id === selectedRouteId) || store.routes[0],
     [store.routes, selectedRouteId]
   );
+  const occupiedSeats = useMemo(() => store.tickets
+    .filter((ticket) => ticket.routeId === selectedRouteId && ticket.travelDate === travelDate && ticket.status !== "cancelled")
+    .map((ticket) => ticket.seatNumber), [store.tickets, selectedRouteId, travelDate]);
 
   const handleSeatClick = (seatCode: string) => {
     if (occupiedSeats.includes(seatCode)) {
@@ -69,6 +71,10 @@ export default function PassengerBookTicketPage() {
   };
 
   const handleConfirmAndPay = async () => {
+    if (!selectedRoute) {
+      toast.error("Route Unavailable", "Please wait for routes to load and select an available route.");
+      return;
+    }
     if (!passengerName.trim() || !passengerPhone.trim()) {
       toast.error("Missing Information", "Please enter passenger name and phone number.");
       return;
@@ -95,6 +101,27 @@ export default function PassengerBookTicketPage() {
       setIsProcessing(false);
     }
   };
+
+  if (!store.isHydrated) {
+    return (
+      <div className="mx-auto flex min-h-64 max-w-4xl items-center justify-center rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+        <LoadingSpinner label="Loading routes and seat availability…" />
+      </div>
+    );
+  }
+
+  if (!selectedRoute) {
+    return (
+      <div className="mx-auto max-w-4xl space-y-4">
+        <Alert tone="error" title="No routes available">
+          {store.error ?? "No active routes were returned by the database. Confirm that the Supabase migration and route seed data were applied."}
+        </Alert>
+        <Button type="button" onClick={() => void store.refresh()}>
+          Retry loading routes
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">

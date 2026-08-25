@@ -32,7 +32,7 @@ export const getServerSession = cache(async (): Promise<AuthUser | null> => {
   const { data: profile, error } = await supabase.from("profiles")
     .select("id,first_name,middle_name,last_name,email,phone,national_id,role,account_status,avatar_url,emergency_contact,preferred_currency")
     .eq("id", userId).single();
-  if (error || !profile) return null;
+  if (error || !profile || profile.account_status === "Suspended") return null;
   return toAuthUser(profile);
 });
 

@@ -15,6 +15,9 @@ from auth.users where id in (
   '10000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000003'
 ) on conflict (provider_id, provider) do nothing;
 
+update public.profiles set role='conductor' where id='10000000-0000-0000-0000-000000000002';
+update public.profiles set role='administrator' where id='10000000-0000-0000-0000-000000000003';
+
 insert into public.routes (id,origin,destination,departure_time,duration,distance_km,fare,status,stops,operating_days) values
 ('rt-001','Central Terminal','East Station','08:30 AM','45 min',28,35,'active',array['Central Terminal','City Mall','Hospital Junc.','East Station'],'Mon - Sun'),
 ('rt-002','Waterfront','University Gate','09:15 AM','55 min',34,42,'active',array['Waterfront','Harbor Point','Tech Park','University Gate'],'Mon - Sat'),

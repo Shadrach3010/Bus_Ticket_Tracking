@@ -32,6 +32,10 @@ export async function PUT(request) {
   }
 
   const body = await request.json().catch(() => ({}));
+  let avatarUrl;
+  const image=String(body.profileImage??"");
+  const imageMatch=image.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
+  if(imageMatch){const extension=imageMatch[1]==="image/jpeg"?"jpg":imageMatch[1].split("/")[1];const path=`${userId}/avatar.${extension}`;const upload=await supabase.storage.from("avatars").upload(path,Buffer.from(imageMatch[2],"base64"),{contentType:imageMatch[1],upsert:true});if(upload.error)return NextResponse.json({message:upload.error.message},{status:400});avatarUrl=supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;}
   const { data: profile, error } = await supabase.from("profiles").update({
     first_name: String(body.firstName ?? "").trim(),
     middle_name: String(body.middleName ?? "").trim() || null,
@@ -40,7 +44,7 @@ export async function PUT(request) {
     national_id: String(body.nationalId ?? "").trim() || null,
     emergency_contact: String(body.emergencyContact ?? "").trim() || null,
     preferred_currency: String(body.preferredCurrency ?? "NLe").trim(),
-    avatar_url: String(body.profileImage ?? body.avatarUrl ?? "").trim() || null,
+    avatar_url: avatarUrl ?? (String(body.avatarUrl ?? "").trim() || null),
   }).eq("id", userId).select().single();
   if (error || !profile) return NextResponse.json({ message: error?.message ?? "Profile not found." }, { status: 400 });
   return NextResponse.json({ user: publicUser(profile) });

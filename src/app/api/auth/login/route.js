@@ -26,8 +26,8 @@ export async function POST(request) {
     );
   }
 
-  const { data: profile } = await supabase.from("profiles").select("id,first_name,middle_name,last_name,email,phone,national_id,role").eq("id", data.user.id).single();
-  if (!profile || profile.role !== role) {
+  const { data: profile } = await supabase.from("profiles").select("id,first_name,middle_name,last_name,email,phone,national_id,role,account_status").eq("id", data.user.id).single();
+  if (!profile || profile.role !== role || profile.account_status === "Suspended") {
     await supabase.auth.signOut();
     return NextResponse.json({ message: "This account does not have the selected role." }, { status: 403 });
   }

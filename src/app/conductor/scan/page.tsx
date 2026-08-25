@@ -32,6 +32,12 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import type { DigitalTicket } from "@/types";
 
+const TICKET_REFERENCE_PATTERN = /\bBT-\d{4}-[A-Z0-9]+\b/i;
+
+function extractTicketReference(value: string) {
+  return value.trim().toUpperCase().match(TICKET_REFERENCE_PATTERN)?.[0] ?? null;
+}
+
 // Acoustic audio synthesizer using native Web Audio API
 function playScanSound(type: "valid" | "duplicate" | "invalid") {
   try {
@@ -276,11 +282,7 @@ export default function ConductorScanPage() {
     setIsProcessing(true);
 
     // Extract ticket reference (e.g. BT-2026-0148 or similar)
-    let cleanRef = rawReference.trim().toUpperCase();
-    const match = cleanRef.match(/BT-\d{4}-\d+/i) || cleanRef.match(/BT-[A-Z0-9-]+/i);
-    if (match) {
-      cleanRef = match[0].toUpperCase();
-    }
+    const cleanRef = extractTicketReference(rawReference) ?? rawReference.trim().toUpperCase();
 
     try {
       const res = await store.validateTicket(cleanRef);
@@ -295,7 +297,7 @@ export default function ConductorScanPage() {
         if (soundEnabled) playScanSound("valid");
         triggerHaptic("valid");
         toast.success("Ticket Verified & Valid", `${res.ticket.passengerName} (Seat ${res.ticket.seatNumber}) boarded.`);
-      } else if (res.reason === "used") {
+      } else if (res.reason === "already_used") {
         setValidationResult({
           status: "used",
           message: res.message,
@@ -366,9 +368,9 @@ export default function ConductorScanPage() {
           handleValidate(decoded);
         } else {
           // Check if filename contains a reference pattern or notify user clearly
-          const matchInName = file.name.match(/BT-\d{4}-\d+/i);
+          const matchInName = extractTicketReference(file.name);
           if (matchInName) {
-            const ref = matchInName[0].toUpperCase();
+            const ref = matchInName;
             setReferenceInput(ref);
             handleValidate(ref);
           } else {

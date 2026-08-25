@@ -162,10 +162,19 @@ create table public.notifications (
   read boolean not null default false,
   created_at timestamptz not null default now()
 );
+create table public.contact_messages (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  email text not null,
+  message text not null check (char_length(message) between 10 and 5000),
+  status text not null default 'New' check (status in ('New','In Progress','Resolved')),
+  created_at timestamptz not null default now()
+);
 create index notifications_user_idx on public.notifications(user_id, created_at desc);
 
 create index tickets_passenger_idx on public.tickets(passenger_id, purchased_at desc);
 create index tickets_reference_idx on public.tickets(reference);
+create unique index tickets_active_seat_idx on public.tickets(route_id, travel_date, seat_number) where status <> 'cancelled';
 create index payments_passenger_idx on public.payments(passenger_id, paid_at desc);
 create index trips_conductor_idx on public.trips(conductor_id, departure_at desc);
 create index feedback_passenger_idx on public.feedback(passenger_id, created_at desc);
@@ -190,8 +199,7 @@ begin
     coalesce(new.email, new.id::text || '@invalid.local'),
     nullif(new.raw_user_meta_data ->> 'phone', ''),
     nullif(new.raw_user_meta_data ->> 'national_id', ''),
-    case when new.raw_user_meta_data ->> 'role' in ('passenger','conductor','administrator')
-      then (new.raw_user_meta_data ->> 'role')::public.user_role else 'passenger'::public.user_role end
+    'passenger'::public.user_role
   ) on conflict (id) do nothing;
   return new;
 end $$;
@@ -213,7 +221,7 @@ begin
   if not found then raise exception 'Route is unavailable'; end if;
   select * into v_trip from public.trips where route_id = p_route_id and departure_at::date = p_travel_date
     and status in ('Scheduled','Boarding') order by departure_at limit 1;
-  if exists (select 1 from public.tickets where trip_id = v_trip.id and seat_number = p_seat_number and status <> 'cancelled') then
+  if exists (select 1 from public.tickets where route_id = p_route_id and travel_date = p_travel_date and seat_number = p_seat_number and status <> 'cancelled') then
     raise exception 'Seat is already booked';
   end if;
   insert into public.tickets (passenger_id, route_id, trip_id, passenger_name, passenger_phone, travel_date, seat_number, bus_id, fare, payment_method)
@@ -225,6 +233,8 @@ begin
   insert into public.notifications(user_id,title,message,type)
   values(v_user,'Boarding Pass Ready','Ticket ' || v_ticket.reference || ' has been booked successfully.','ticket');
   return jsonb_build_object('ticket_id', v_ticket.id, 'reference', v_ticket.reference, 'payment_id', v_payment.id);
+exception when unique_violation then
+  raise exception 'Seat is already booked';
 end $$;
 
 create or replace function public.validate_ticket(p_reference text, p_bus_id text default null) returns jsonb
@@ -276,19 +286,27 @@ alter table public.feedback enable row level security;
 alter table public.validation_logs enable row level security;
 alter table public.user_preferences enable row level security;
 alter table public.notifications enable row level security;
+alter table public.contact_messages enable row level security;
 
 revoke all on all tables in schema public from anon, authenticated;
 grant select on public.routes, public.buses, public.trips to authenticated;
-grant select, update on public.profiles to authenticated;
-grant select, update on public.tickets to authenticated;
-grant select, update on public.payments to authenticated;
-grant select, update on public.manifest_passengers to authenticated;
-grant select, insert, update on public.incident_reports to authenticated;
-grant select, insert, update on public.feedback to authenticated;
+grant select on public.profiles to authenticated;
+grant update(first_name,middle_name,last_name,phone,national_id,avatar_url,emergency_contact,preferred_currency) on public.profiles to authenticated;
+grant select on public.tickets, public.payments to authenticated;
+grant select on public.manifest_passengers to authenticated;
+grant update(is_boarded,boarded_at) on public.manifest_passengers to authenticated;
+grant select, insert on public.incident_reports to authenticated;
+grant update(status) on public.incident_reports to authenticated;
+grant select, insert on public.feedback to authenticated;
+grant update(status) on public.feedback to authenticated;
 grant select on public.validation_logs to authenticated;
 grant select, insert, update on public.user_preferences to authenticated;
 grant select, update, delete on public.notifications to authenticated;
-grant insert, update, delete on public.routes, public.buses, public.trips to authenticated;
+grant insert on public.contact_messages to anon, authenticated;
+grant select, update on public.contact_messages to authenticated;
+grant insert, update, delete on public.routes, public.buses to authenticated;
+grant insert, delete on public.trips to authenticated;
+grant update(status,current_stop_index) on public.trips to authenticated;
 grant execute on function public.book_ticket(text,date,text,text,text,public.payment_method) to authenticated;
 grant execute on function public.validate_ticket(text,text) to authenticated;
 grant execute on function public.cancel_ticket(text) to authenticated;
@@ -330,3 +348,14 @@ create policy preferences_update on public.user_preferences for update to authen
 create policy notifications_select on public.notifications for select to authenticated using (user_id=(select auth.uid()));
 create policy notifications_update on public.notifications for update to authenticated using (user_id=(select auth.uid())) with check (user_id=(select auth.uid()));
 create policy notifications_delete on public.notifications for delete to authenticated using (user_id=(select auth.uid()));
+create policy contact_insert on public.contact_messages for insert to anon, authenticated with check (true);
+create policy contact_admin_select on public.contact_messages for select to authenticated using (public.current_user_role()='administrator');
+create policy contact_admin_update on public.contact_messages for update to authenticated using (public.current_user_role()='administrator') with check (public.current_user_role()='administrator');
+
+insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
+values('avatars','avatars',true,5242880,array['image/jpeg','image/png','image/webp'])
+on conflict(id) do update set public=excluded.public,file_size_limit=excluded.file_size_limit,allowed_mime_types=excluded.allowed_mime_types;
+create policy avatar_public_read on storage.objects for select to anon,authenticated using(bucket_id='avatars');
+create policy avatar_owner_insert on storage.objects for insert to authenticated with check(bucket_id='avatars' and (storage.foldername(name))[1]=(select auth.uid())::text);
+create policy avatar_owner_update on storage.objects for update to authenticated using(bucket_id='avatars' and (storage.foldername(name))[1]=(select auth.uid())::text) with check(bucket_id='avatars' and (storage.foldername(name))[1]=(select auth.uid())::text);
+create policy avatar_owner_delete on storage.objects for delete to authenticated using(bucket_id='avatars' and (storage.foldername(name))[1]=(select auth.uid())::text);

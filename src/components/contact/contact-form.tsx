@@ -27,12 +27,9 @@ export function ContactForm() {
 
     setError("");
     setLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setLoading(false);
-    setSuccess("Message submitted.");
-    setName("");
-    setEmail("");
-    setMessage("");
+    try { const response=await fetch("/api/contact",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,email,message})});const payload=await response.json();if(!response.ok)throw new Error(payload.message);setSuccess("Message submitted.");setName("");setEmail("");setMessage(""); }
+    catch(cause){setError(cause instanceof Error?cause.message:"Unable to submit message.");}
+    finally{setLoading(false);}
   }
 
   return (
