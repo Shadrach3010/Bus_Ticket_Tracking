@@ -1,6 +1,6 @@
 # BusTicket — Real-Time Digital Bus Ticketing
 
-A role-based bus ticketing platform for purchasing digital tickets, managing transport operations, and validating QR boarding passes in real time.
+A role-based bus ticketing platform for purchasing digital tickets, managing transport operations, and validating QR boarding passes in real time. 
 
 The application is built with Next.js 16 and Supabase. PostgreSQL is the source of truth for operational data; Supabase Auth provides user sessions; Row Level Security (RLS) enforces authorization at the database boundary.
 
